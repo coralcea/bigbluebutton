@@ -97,6 +97,7 @@
             private var gIsEnableChatNotification:Boolean   = true;
             private var gNotifyNewUserNum:Number = 0;
             private var gTimNewUser:Timer;
+            private var gHBoxNotification:HBox;
 			
 			private var globalDispatcher:Dispatcher;
 			
@@ -512,7 +513,6 @@
                 
                 // initialize chat notification window
                 showWindow(lSender,lMessage);
-                _gWindow.visible = false;
                 
                 // initialize Timer and start to blink chat notification
                 gTimChat = new Timer(TIMER_INTERVAL);
@@ -548,15 +548,13 @@
                 // determine the timer step 'equal to NOTIFY_DURATION'
                 if (NOTIFY_DURATION == gNotifyChatNum)
                 {
-                    // hide notification window.
-                    _gWindow.visible = false;
                     if ( null != gTimChat ){
                         gTimChat.stop();
                     }
                     gNotifyChatNum = 0;
                     return;
                 }
-                _gWindow.visible = !_gWindow.visible;
+                gHBoxNotification.visible    = !gHBoxNotification.visible;
                 gNotifyChatNum += 1;
             }
             /*
@@ -588,6 +586,7 @@
                 
                 var lblChatNotificaton:Label    = new Label;
                 var lNotificationMsg:String      = lName + " : " + lMessage;
+                gHBoxNotification    = new HBox;
                    
                 // determine the message length is > 25 character
                 if ( 25 < lNotificationMsg.length )
@@ -596,11 +595,13 @@
                     lNotificationMsg     = lNotificationMsg.substring(0,25) + "....";
                 }
                 lblChatNotificaton.text = lNotificationMsg;
+                gHBoxNotification.addChild(lblChatNotificaton);
                 
                 // initialize and add message to notification window.
                 _gWindow         = TitleWindow(PopUpManager.createPopUp(this, TitleWindow));
-                _gWindow.addChild(lblChatNotificaton);
-                _gWindow.width   = 200;
+                _gWindow.title  = 'New Chat';
+                _gWindow.addChild(gHBoxNotification); 
+                _gWindow.width  = 200;
                 _gWindow.horizontalScrollPolicy="off";
                 
                 // set position
@@ -639,18 +640,19 @@
                 // initialize controls to add to notification window
                 var imgUserIcon:Image   = new Image;
                 var lblNotificationText:Label = new Label;
-                var hBox:HBox   = new HBox;
+                gHBoxNotification    = new HBox;
                 
                 imgUserIcon.source      = userIcon;
                 lblNotificationText.text= lUname + " : joined";
                 lblNotificationText.width   = 150;
                 
-                hBox.addChild(imgUserIcon);
-                hBox.addChild(lblNotificationText);
+                gHBoxNotification.addChild(imgUserIcon);
+                gHBoxNotification.addChild(lblNotificationText);
                 
                 // initialize and add controls to notification window.
                 _gWindow = TitleWindow(PopUpManager.createPopUp(this, TitleWindow));
-                _gWindow.addChild(hBox);
+                _gWindow.title = 'Notification';
+                _gWindow.addChild(gHBoxNotification);
                 _gWindow.width   = 200;
                 _gWindow.horizontalScrollPolicy="off";
                     
@@ -765,11 +767,6 @@
                 // Determine the timer step
                 if (NOTIFY_DURATION == gNotifyNewUserNum)
                 {
-                    _gWindow.visible = false;
-                    
-                    //  remove notification window
-                    PopUpManager.removePopUp(_gWindow);
-                    
                     // stop timer
                     if ( null != gTimNewUser ){
                         gTimNewUser.stop();
@@ -777,7 +774,7 @@
                     gNotifyNewUserNum = 0;
                     return;
                 } 
-                _gWindow.visible   = !_gWindow.visible;
+                gHBoxNotification.visible = !gHBoxNotification.visible;
                 gNotifyNewUserNum += 1;
             }
             /*

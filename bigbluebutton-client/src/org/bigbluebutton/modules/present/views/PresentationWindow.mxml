@@ -85,9 +85,10 @@
 			import org.bigbluebutton.modules.present.managers.Slide;
 			import org.bigbluebutton.modules.present.managers.SlideManager;
 			import org.bigbluebutton.util.i18n.ResourceUtil;
-            
-            // _PTS_731_
+			
+			// _PTS_731_
             import flash.external.*;
+			import org.bigbluebutton.modules.present.events.CenterSlideEvent;
              			
             public static const TITLE:String = "Presentation";
 			private var presenterName:String = "";
@@ -159,33 +160,6 @@
 				fitSlideToWindowMaintainingAspectRatio();
 				
 				this.y = 0;
-				// fixing: maximize presentation window 
-				// get width and height of presentation window during startup
-				// because of this function double execute at the startup
-				// the first execute set value '2' and the second set
-				// the width and height of presentation window.
-				if (2 == slideView.getDefaultWidth()){
-                    slideView.setDefaultWidth(this.width);
-                }
-                // the second execute
-                if (2 == slideView.getDefaultHeight()){
-                    slideView.setDefaultHeight(this.height);
-                    
-                    // set the thumbnail position
-                    slideView.thumbnailView.y = this.height-170;
-                }
-                // determine the first execute, the default value of
-                // getDefaultWidth() is 1
-				if (1 == slideView.getDefaultWidth()){
-				    slideView.setDefaultWidth(2);
-				    
-				}
-				// determine the first execute, the default value of
-                // getDefaultHeight() is 1
-				if (1 == slideView.getDefaultHeight()){
-				    slideView.setDefaultHeight(2)
-				}
-
 				if (this.maximized) {
 					//callLater(restore);
                     if (true == ExternalInterface.available) 
@@ -195,9 +169,13 @@
                        //   _PTS_731_
                        ExternalInterface.call("showButton", true);
                     } 
+					/*
 					var timer:Timer = new Timer(500, 1);
 					timer.addEventListener(TimerEvent.TIMER, adjustPosition);
 					timer.start();
+					*/
+					// maximize and center slide
+					dispatchEvent(new CenterSlideEvent(CenterSlideEvent.CENTER_SLIDE));
 				}
                 else
                 {
@@ -268,16 +246,19 @@
 				
 				// If the height is smaller than the width, we use the height as the 
 				// base to determine the size of the slide.
-				/*if (this.height < this.width) {					
+				if (this.height < this.width) {					
 					slideHeight = this.height - CONTROL_BAR_HEIGHT - TOP_WINDOW_BORDER;
 					slideWidth = ((currentSlideWidth * slideHeight)/currentSlideHeight);
 				} else {
 					slideWidth = this.width - WIDTH_PADDING;
 					slideHeight = ((currentSlideHeight * slideWidth)/currentSlideWidth);
-				}*/
-				
-				//this.width = slideWidth + WIDTH_PADDING;
-				//this.height = slideHeight + CONTROL_BAR_HEIGHT + TOP_WINDOW_BORDER;
+				}
+				// check the window status, if it is not maximize fit the window to 
+				// the slide
+				if ( false == this.maximized ) {
+				    this.width = slideWidth + WIDTH_PADDING;
+				    this.height = slideHeight + CONTROL_BAR_HEIGHT + TOP_WINDOW_BORDER;
+				}
 
 				// Test if the height and width are bigger than it's parent. If so, resize
 				// to make it fit inside so that the controls will still be visible.
@@ -292,35 +273,7 @@
 					slideWidth = this.width - WIDTH_PADDING;
 					slideHeight = ((currentSlideHeight * slideWidth)/currentSlideWidth);
 				}
-				
-				//_PTS_731_
-				//Test if the currentSlideWidth small than window's width, fit the slide's 
-				//width the same as window's width
-				if ( currentSlideWidth < this.width ){
-					slideWidth = this.width - WIDTH_PADDING;
-					slideHeight = ((currentSlideHeight * slideWidth)/currentSlideWidth);
-				}else{
-                    slideWidth = currentSlideWidth ;
-                    slideHeight = ((currentSlideHeight * slideWidth)/currentSlideWidth);
-                }
-				//Test if the current slide height is smaller than window's height,
-				//fit the slide height to window's height
-				if ( (currentSlideHeight < this.height) && (this.width != this.parent.width)){
-					slideWidth = this.width + (this.height - currentSlideHeight) ;
-					slideHeight = this.height ;
-				}
-                
-				//sendWindowResizedEvent(slideWidth, slideHeight);// fix: maximize presentation window 
-
-				// fix: maximize presentation window
-				// set the slide status
-				// slide is loading.
-				if ( true == slideView.getIsLoadedComplete() ){
-                    slideView.setIsLoading(false);
-                }else{
-                    // slide load complete
-                    slideView.setIsLoading(true);
-                }
+				sendWindowResizedEvent(slideWidth, slideHeight);
 			}
 			
 			/*
@@ -338,19 +291,11 @@
 			
 			private function handleDisplaySlideEvent(event:DisplaySlideEvent):void {				
 				currentSlideWidth = event.slideWidth;
-				currentSlideHeight = event.slideHeight;				
+				currentSlideHeight = event.slideHeight;
 				fitSlideToWindowMaintainingAspectRatio();
 				
-				// fix: maximize presentation window
-				// set current slide width and height to slideView object
-				slideView.setCurrentSlideWidth(currentSlideWidth);
-				slideView.setCurrentSlideHeight(currentSlideHeight);
-                
-                // zoom slide after loaded.
-                if (true == isPresenter){
-                    slideView.zoomLoaderBy(zoomSlider.value);
-                }
-					
+				// to center slide when the slide display
+				dispatchEvent(new CenterSlideEvent(CenterSlideEvent.CENTER_SLIDE));	
 			}
 			
 			private function onKeyUp(event:KeyboardEvent):void{
@@ -424,9 +369,6 @@
 			private function setupPresenter(isPresenter:Boolean, presentersName:String):void {
 				this.isPresenter = isPresenter;
 				uploadPres.visible = isPresenter;
-
-                // show or hide 'lock follow presenter slide' button
-                lockButton.visible   = !isPresenter;
 				
 				if (presentationLoaded) {
 	            	displaySlideNumber(slideView.selectedSlide + 1);	
@@ -464,7 +406,7 @@
 				} else {
 					dispatchEvent(new SlideEvent(SlideEvent.LOAD_CURRENT_SLIDE));
 				}
-				//onResetZoom();// fix: maximize presentation window
+				onResetZoom();
 				reinitWindowToDefaultSize();
 				//this.setFocus();
 			}
@@ -674,48 +616,6 @@
 				if ((slideView != null) && (!slideView.visible)) this.title = ResourceUtil.getInstance().getString('bbb.presentation.title');
 			}
             
-            /*****************************************************************************
-            ;  switchFollowPreseterSlide
-            ;----------------------------------------------------------------------------
-            ; DESCRIPTION
-            ;   This routine is use to switch view slide to follow presenter slide or not.
-            ;
-            ; RETURNS
-            ;
-            ; INTERFACE NOTES
-            ;
-            ; IMPLEMENTATION
-            ;       - change 'lock following presenter slide' status
-            ;       - check 'lock following presenter slide' status to 
-            ;         display or hide zoom slider and change button icon.
-            ; HISTORY
-            ; __date__ :        PTS:            Description
-            ; 2011.01.04                        lock and unlock presentation slide
-            ;                                   from presenter
-            ;
-            ******************************************************************************/
-            private function switchFollowPreseterSlide() : void {
-                slideView.switchFollowPreseterSlide();
-                //check 'lock following presenter slide' status
-                if (true == slideView.getFollowPresenterStatus()){
-                    // change button icon and toolTip
-                    lockButton.setStyle('icon',unlockedIcon);
-                    lockButton.toolTip = ResourceUtil.getInstance().getString('bbb.presentation.unlockSlideWithPresenter');
-                    // hide zoom slider and reset zoom button
-                    zoomSlider.visible      = false;
-                    btnResetZoom.visible    = false;
-                }else{
-                    // change button icon and toolTip
-                    lockButton.setStyle('icon',lockedIcon);
-                    lockButton.toolTip = ResourceUtil.getInstance().getString('bbb.presentation.lockSlideWithPresenter');
-                    // show zoom slider and reset zoom button
-                    zoomSlider.visible      = true;
-                    btnResetZoom.visible    = true;
-                }
-            }
-            /**
-             * END FUNCTION 'switchFollowPreseterSlide'
-             **/
 		]]>
 	</mx:Script>
 
@@ -738,9 +638,7 @@
     <mx:ApplicationControlBar id="presCtrlBar" width="100%" height="{CONTROL_BAR_HEIGHT}">
     	  <mx:Button id="uploadPres" icon="{uploadIcon}" visible="false" width="20" height="20"
     	   		toolTip="{ResourceUtil.getInstance().getString('bbb.presentation.uploadPresBtn.toolTip')}" 
-    	   		click="dispatchEvent(new UploadEvent(UploadEvent.OPEN_UPLOAD_WINDOW))"/>     
-          <mx:Button id="lockButton" icon="{unlockedIcon}" visible="false" width="30" height="20"
-                  toolTip="{ResourceUtil.getInstance().getString('bbb.presentation.unlockSlideWithPresenter')}" click="switchFollowPreseterSlide()"/>
+    	   		click="dispatchEvent(new UploadEvent(UploadEvent.OPEN_UPLOAD_WINDOW))"/>        	  
     	  <mx:Spacer width="50%" id="spacer1"/>
     	  <mx:Button id="backButton" icon="{backwardIcon}" visible="false" width="30" height="20"
     	   		toolTip="{ResourceUtil.getInstance().getString('bbb.presentation.backBtn.toolTip')}" click="gotoPreviousSlide()"/>
