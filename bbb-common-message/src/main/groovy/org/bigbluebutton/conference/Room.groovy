@@ -158,7 +158,9 @@ public class Room implements Serializable {
 	
 	/* 
 	* Store loaded module(s)of "moduleCommand" API call method 
-	* input parameters: a string that represents the command we 	* want to pass to the Bigbluebutton client (i.e. start, stop, 	* etc). 
+	* input parameters: a string that represents the command we 	
+        * want to pass to the Bigbluebutton client (i.e. start, stop, 	
+        * etc). 
 	*/
 
 	
