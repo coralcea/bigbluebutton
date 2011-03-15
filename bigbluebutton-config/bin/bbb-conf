@@ -38,7 +38,7 @@
 #   2010-11-06 FFD  Added logic to ensure red5 shuts down
 #   2010-12-12 FFD  Fixed bug #778
 #   2010-12-12 FFD  Added support for Intalio VM 
-
+# 
 #set -x
 
 
