@@ -436,7 +436,7 @@ while [ $# -gt 0 ]; do
 	if [ "$1" = "--checkout" -o "$1" = "-checkout" ]; then
 		echo "# Request to checkout BigBlueButton"
 		if [ $# -lt 2 ]; then
-			CHECKOUT="git://github.com/bigbluebutton/bigbluebutton.git"
+			CHECKOUT="git://github.com/fhorsfall/bigbluebutton.git"
 		else
 			CHECKOUT="${2}"
 		fi	
