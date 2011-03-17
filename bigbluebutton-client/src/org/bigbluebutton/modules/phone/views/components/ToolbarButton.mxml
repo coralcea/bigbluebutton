@@ -23,8 +23,10 @@
 <mx:Button xmlns:mx="http://www.adobe.com/2006/mxml"
 	icon="{phoneIcon}" click="startPhone()"
 	xmlns:mate="http://mate.asfusion.com/"
-	toolTip="{ResourceUtil.getInstance().getString('bbb.toolbar.phone.toolTip')}+'_Test3'">
-	
+  toolTip="{ResourceUtil.getInstance().getString('bbb.toolbar.phone.toolTip')}">
+
+<-- Frank temporary comment out toolTip="{ResourceUtil.getInstance().getString('bbb.toolbar.phone.toolTip')}+'_Test3'">
+-->	
 	<mate:Listener type="{CallConnectedEvent.CALL_CONNECTED_EVENT}" method="handleCallConnectedEvent"/>
 	<mate:Listener type="{CallDisconnectedEvent.CALL_DISCONNECTED_EVENT}" method="handleCallDisconnectedEvent"/>
 	<mate:Listener type="{BBBEvent.JOIN_VOICE_CONFERENCE}" method="handleBBBJoinConferenceEvent"/>
