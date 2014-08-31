@@ -28,6 +28,16 @@ import org.bigbluebutton.voiceconf.red5.media.net.RtpPacket;
 import org.bigbluebutton.voiceconf.red5.media.net.RtpSocket;
 import org.red5.logging.Red5LoggerFactory;
 
+/*****************************************************************************
+;  RtpStreamReceiver
+;----------------------------------------------------------------------------
+; DESCRIPTION
+;   this class is used to receive stream from rtp
+;
+; HISTORY
+; __date__ :        PTS:            Description
+; 03-30-2011
+******************************************************************************/
 public class RtpStreamReceiver {
     protected static Logger log = Red5LoggerFactory.getLogger(RtpStreamReceiver.class, "sip");
     
@@ -48,25 +58,98 @@ public class RtpStreamReceiver {
     
     private long lastPacketReceived = 0;
     
+    /*****************************************************************************
+    ;  RtpStreamReceiver
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this is the class constructor.
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   socket                  :   DatagramSocket
+    ;   expectedPayloadLength   :   int
+    ;   
+    ; IMPLEMENTATION
+    ;  initialize socket
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     public RtpStreamReceiver(DatagramSocket socket, int expectedPayloadLength) {
+        
+        if ( null == socket ){
+            log.error("error input parameter");
+        }
+        
     	this.payloadLength = expectedPayloadLength;
         rtpSocket = new RtpSocket(socket);
-
+        if ( null == rtpSocket ){
+            log.error("error initialize rtpSocket");
+        }
         initializeSocket();
-    }
+    }/**END FUNCTION RtpStreamReceiver**/
     
+    /*****************************************************************************
+    ;  setRtpStreamReceiverListener
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to set stream receiver listener.
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   listener    :   RtpStreamReceiverListener
+    ;   
+    ; IMPLEMENTATION
+    ;  assign listener
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     public void setRtpStreamReceiverListener(RtpStreamReceiverListener listener) {
     	this.listener = listener;
-    }
+    }/**END FUNCTION setRtpStreamReceiverListener**/
     
+    /*****************************************************************************
+    ;  initializeSocket
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to initialize socket
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private void initializeSocket() {
-/*    	try {
-			rtpSocket.getDatagramSocket().setSoTimeout(SO_TIMEOUT);
-		} catch (SocketException e1) {
-			log.warn("SocketException while setting socket block time.");
-		}
-*/    }
+    }/**END FUNCTION initializeSocket**/
     
+    /*****************************************************************************
+    ;  start
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to start the packet receiver
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  start receive rtp packet
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     public void start() {
     	receivePackets = true;
     	rtpPacketReceiver = new Runnable() {
@@ -75,25 +158,61 @@ public class RtpStreamReceiver {
     		}
     	};
     	exec.execute(rtpPacketReceiver);
-    }
+    }/**END FUNCTION start**/
     
+    /*****************************************************************************
+    ;  stop
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to stop the packet receiver
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  stop receive rtp packet
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     public void stop() {
     	receivePackets = false;
-    }
+    }/**END FUNCTION stop**/
     
+    /*****************************************************************************
+    ;  receiveRtpPackets
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to receive the packet
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  initialize buffer
+    ;  receive rtp packets
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     public void receiveRtpPackets() {    
         int packetReceivedCounter = 0;
         int internalBufferLength = payloadLength + RTP_HEADER_SIZE;
         byte[] internalBuffer = new byte[internalBufferLength];
         RtpPacket rtpPacket = new RtpPacket(internalBuffer, internalBufferLength);;
+        if ( null == rtpPacket ){
+            log.error("error initialize rtpPacket");
+            return ;
+        }
         
         while (receivePackets) {
         	try {       			
         		rtpSocket.receive(rtpPacket);        		
         		packetReceivedCounter++;  
-//    			log.debug("Received packet [" + rtpPacket.getRtcpPayloadType() + "," + rtpPacket.getPayloadType() + ", length=" + rtpPacket.getPayloadLength() + "] seqNum[rtpSeqNum=" + rtpPacket.getSeqNum() + ",lastSeqNum=" + lastSequenceNumber 
-//    					+ "][rtpTS=" + rtpPacket.getTimestamp() + ",lastTS=" + lastPacketTimestamp + "][port=" + rtpSocket.getDatagramSocket().getLocalPort() + "]");          			       			
-     
         		if (shouldDropDelayedPacket(rtpPacket)) {
         			continue;
         		}
@@ -107,11 +226,9 @@ public class RtpStreamReceiver {
         					+ "][rtpTS=" + rtpPacket.getTimestamp() + ",lastTS=" + lastPacketTimestamp + "][port=" + rtpSocket.getDatagramSocket().getLocalPort() + "]");          			
         		} else {
             		if (shouldHandlePacket(rtpPacket)) {        			            			
-//            			log.debug("Handling packet [" + rtpPacket.getRtcpPayloadType() + "," + rtpPacket.getPayloadType() + ", length=" + rtpPacket.getPayloadLength() + "] seqNum[rtpSeqNum=" + rtpPacket.getSeqNum() + ",lastSeqNum=" + lastSequenceNumber 
-//            					+ "][rtpTS=" + rtpPacket.getTimestamp() + ",lastTS=" + lastPacketTimestamp + "][port=" + rtpSocket.getDatagramSocket().getLocalPort() + "]");          			       			
             			lastSequenceNumber = rtpPacket.getSeqNum();
             			lastPacketTimestamp = rtpPacket.getTimestamp();
-            			processRtpPacket(internalBuffer, RTP_HEADER_SIZE, payloadLength);
+            			processRtpPacket(internalBuffer, RTP_HEADER_SIZE, rtpPacket.getPayloadLength());
             		} else {
             			if (log.isDebugEnabled())
             				log.debug("Corrupt packet [" + rtpPacket.getRtcpPayloadType() + "," + rtpPacket.getPayloadType() + ", length=" + rtpPacket.getPayloadLength() + "] seqNum[rtpSeqNum=" + rtpPacket.getSeqNum() + ",lastSeqNum=" + lastSequenceNumber 
@@ -127,9 +244,33 @@ public class RtpStreamReceiver {
         }
         log.debug("Rtp Receiver stopped. Packet Received = " + packetReceivedCounter + "." );
         if (listener != null) listener.onStoppedReceiving();
-    }
+    }/**END FUNCTION receiveRtpPackets**/
     
+    /*****************************************************************************
+    ;  shouldDropDelayedPacket
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to drop the delay packet
+    ;
+    ; RETURNS : boolean
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   rtpPacket   :   RtpPacket
+    ;
+    ; IMPLEMENTATION
+    ;  check the drop packets
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private boolean shouldDropDelayedPacket(RtpPacket rtpPacket) {
+    
+        if ( null == rtpPacket ){
+            log.error("error input parameter");
+            return true ;
+        }
+        
     	long now = System.currentTimeMillis();
     	if (now - lastPacketReceived > 200) {
     		if (log.isDebugEnabled())
@@ -140,10 +281,33 @@ public class RtpStreamReceiver {
     	}
     	lastPacketReceived = now;
     	return false;
-    }
+    }/**END FUNCTION shouldDropDelayedPacket**/
     
+    /*****************************************************************************
+    ;  isMarkerPacket
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to set whether packet is marked
+    ;
+    ; RETURNS : boolean
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   rtpPacket   :   RtpPacket
+    ;
+    ; IMPLEMENTATION
+    ;  check whether packet is marker
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private boolean isMarkerPacket(RtpPacket rtpPacket) {
-    	/*
+    	
+        if ( null == rtpPacket ){
+            log.error("error input parameter");
+            return true ;
+        }
+        /*
     	 * FreeSWITCH sends a marker packet at the beginning of the voice frame.
     	 * If you stop talking and then start talking, a marker packet is received on start talking. (ralam sept 20, 2010).
     	 */
@@ -153,19 +317,61 @@ public class RtpStreamReceiver {
    					+ "][rtpTS=" + rtpPacket.getTimestamp() + ",lastTS=" + lastPacketTimestamp + "][port=" + rtpSocket.getDatagramSocket().getLocalPort() + "]");       				        			
    			return true;
 		}    	
-		
+
 		return false;
-    }
+    }/**END FUNCTION isMarkerPacket**/
     
+    
+    /*****************************************************************************
+    ;  shouldHandlePacket
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to set whether packet should handle
+    ;
+    ; RETURNS : boolean
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   rtpPacket   :   RtpPacket
+    ;
+    ; IMPLEMENTATION
+    ;  check if packet should handle
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private boolean shouldHandlePacket(RtpPacket rtpPacket) {
+    
+        if ( null == rtpPacket ){
+            log.error("error input parameter");
+            return true ;
+        }
 		/** Take seq number only into account and not timestamps. Seems like the timestamp sometimes change whenever the audio changes source.
 		 *  For example, in FreeSWITCH, the audio prompt will have it's own "start" timestamp and then
 		 *  another "start" timestamp will be generated for the voice. (ralam, sept 7, 2010).
 		 *	&& packetIsNotCorrupt(rtpPacket)) {
 		**/
     	 return isFirstPacket(rtpPacket) || isMarkerPacket(rtpPacket) || resetDueToSuccessiveDroppedPackets() || validSeqNum(rtpPacket) || seqNumRolledOver(rtpPacket);    			
-    }
+    }/**END FUNCTION shouldHandlePacket**/
     
+    /*****************************************************************************
+    ;  resetDueToSuccessiveDroppedPackets
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to reset dropped packets
+    ;
+    ; RETURNS : boolean
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;
+    ;
+    ; IMPLEMENTATION
+    ;  check if packets have to reset
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private boolean resetDueToSuccessiveDroppedPackets() {
     	/*
     	 * I notice that Asterisk (1.6.2.5) sets the rtp sequence number to 12 every time it sends a marked rtp packet. This screws up our
@@ -181,9 +387,33 @@ public class RtpStreamReceiver {
     		return true;
     	}
     	return false;
-    }
+    }/**END FUNCTION resetDueToSuccessiveDroppedPackets**/
     
+    /*****************************************************************************
+    ;  isFirstPacket
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to check whether the packet is the first packet
+    ;
+    ; RETURNS : boolean
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   rtpPacket   :   RtpPacket
+    ;
+    ; IMPLEMENTATION
+    ;  check if the packets is the first one
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private boolean isFirstPacket(RtpPacket rtpPacket) {
+    
+        if ( null == rtpPacket ){
+            log.error("error input parameter");
+            return false ;
+        }
+        
 		if (firstPacket) {
 			lastPacketReceived = System.currentTimeMillis();
 			firstPacket = false;
@@ -193,16 +423,62 @@ public class RtpStreamReceiver {
 			return true;
 		}
 		return false;
-    }
+    }/**END FUNCTION isFirstPacket**/
     
+    /*****************************************************************************
+    ;  validSeqNum
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to check the valid seqment number
+    ;
+    ; RETURNS : boolean
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   rtpPacket   :   RtpPacket
+    ;
+    ; IMPLEMENTATION
+    ;  check valid seqment number
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private boolean validSeqNum(RtpPacket rtpPacket) {
+    
+        if ( null == rtpPacket ){
+            log.error("error input parameter");
+            return false ;
+        }
     	/*
     	 * Assume if the sequence number jumps by more that 100, that the sequence number is corrupt.
     	 */
     	return (rtpPacket.getSeqNum() > lastSequenceNumber && rtpPacket.getSeqNum() - lastSequenceNumber < 100);
-    }
+    }/**END FUNCTION validSeqNum**/
     
+    /*****************************************************************************
+    ;  seqNumRolledOver
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to check the roll over seq number
+    ;
+    ; RETURNS : boolean
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   rtpPacket   :   RtpPacket
+    ;
+    ; IMPLEMENTATION
+    ;  check if seqment number is roll over
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private boolean seqNumRolledOver(RtpPacket rtpPacket) {
+        
+        if ( null == rtpPacket ){
+            log.error("error input parameter");
+            return false ;
+        }
     	/*
     	 * Max sequence num is 65535 (16-bits). Let's use 65000 as check to take into account
     	 * delayed packets.
@@ -214,10 +490,30 @@ public class RtpStreamReceiver {
 			return true;	
     	}
     	return false;
-    }
+    }/**END FUNCTION seqNumRolledOver**/
 
+    /*****************************************************************************
+    ;  processRtpPacket
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to process the rtp packet
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   rtpAudio    :   byte[]
+    ;   offset      :   int
+    ;   len         :   int
+    ;
+    ; IMPLEMENTATION
+    ;  process rtp packets
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
     private void processRtpPacket(byte[] rtpAudio, int offset, int len) {
 		if (listener != null) listener.onAudioDataReceived(rtpAudio, offset, len);
 		else log.debug("No listener for incoming audio packet");    	
-    }
-}
+    }/**END FUNCTION processRtpPacket**/
+}/**END CLASS RtpStreamReceiver**/

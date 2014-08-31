@@ -19,12 +19,7 @@
 **/
 package org.bigbluebutton.voiceconf.red5.media;
 
-import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.net.DatagramSocket;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import org.apache.mina.core.buffer.IoBuffer;
 import org.bigbluebutton.voiceconf.red5.media.transcoder.SipToFlashTranscoder;
 import org.bigbluebutton.voiceconf.red5.media.transcoder.TranscodedAudioDataListener;
@@ -39,16 +34,23 @@ import org.red5.server.stream.IBroadcastScope;
 import org.red5.server.stream.IProviderService;
 import org.slf4j.Logger;
 
+/*****************************************************************************
+;  SipToFlashAudioStream
+;----------------------------------------------------------------------------
+; DESCRIPTION
+;   this class is used to convert sip to flash audio stream
+;
+; HISTORY
+; __date__ :        PTS:            Description
+; 03-30-2011
+******************************************************************************/
 public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpStreamReceiverListener {
 	final private Logger log = Red5LoggerFactory.getLogger(SipToFlashAudioStream.class, "sip");
-	
-	private final PipedOutputStream streamFromSip;
-	private PipedInputStream streamToFlash;
-	
-	private final Executor exec = Executors.newSingleThreadExecutor();
-	private Runnable audioDataProcessor;
+
+
+//	private Runnable audioDataProcessor;
 	private volatile boolean processAudioData = false;
-	
+
 	private AudioBroadcastStream audioBroadcastStream;
 	private IScope scope;
 	private final String listenStreamName;
@@ -58,7 +60,7 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
 	private boolean sentMetadata = false;
 	private IoBuffer mBuffer;
 	private AudioData audioData;
-	
+
 	private final byte[] fakeMetadata = new byte[] {
 		0x02, 0x00, 0x0a, 0x6f, 0x6e, 0x4d, 0x65, 0x74, 0x61, 0x44, 0x61, 0x74, 0x61, 0x08, 0x00, 0x00,  
 		0x00, 0x06, 0x00, 0x08, 0x64, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x00, 0x40, 0x31, (byte)0xaf,  
@@ -70,38 +72,133 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
 		0x64, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x66, 0x69, 0x6c, 0x65,  
 		(byte)0xc8, 0x73, 0x69, 0x7a, 0x65, 0x00, 0x40, (byte)0xf3, (byte)0xf5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  
 	};
-	
+
+    /*****************************************************************************
+    ;  SipToFlashAudioStream
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this is the class constructor.
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   scope       :   IScope
+    ;   transcoder  :   SipToFlashTranscoder
+    ;   socket      :   DatagramSocket
+    ;   
+    ; IMPLEMENTATION
+    ;  set rtp stream receiver
+    ;  allocate buffer
+    ;  set listener
+    ;
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	public SipToFlashAudioStream(IScope scope, SipToFlashTranscoder transcoder, DatagramSocket socket) {
+    
+        if ( (null == scope)      ||
+             (null == transcoder) ||
+             (null == socket) ){
+             
+            log.error("error input parameter");
+        }
+        
+		processAudioData = true;
+		transcoder.setProcessAudioData(processAudioData);
 		this.scope = scope;
 		this.transcoder = transcoder;
+        
 		rtpStreamReceiver = new RtpStreamReceiver(socket, transcoder.getIncomingEncodedFrameSize());
+        if ( null == rtpStreamReceiver ){
+            log.error("error initialize rtpStreamReceiver");
+        }
+        
 		rtpStreamReceiver.setRtpStreamReceiverListener(this);
 		listenStreamName = "speaker_" + System.currentTimeMillis();		
 		scope.setName(listenStreamName);	
-		streamFromSip = new PipedOutputStream();
-		try {
-			streamToFlash = new PipedInputStream(streamFromSip);
+//		streamFromSip = new PipedOutputStream();
+//		try {
+//			streamToFlash = new PipedInputStream(streamFromSip);
 			startNow();
 			mBuffer = IoBuffer.allocate(1024);
 			mBuffer = mBuffer.setAutoExpand(true);
+            
 	        audioData = new AudioData();
-		} catch (IOException e) {
+            if ( null == audioData ){
+                log.error("error initialize audio data");
+            }
+//		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	
+//			e.printStackTrace();
+//		}
+		transcoder.setTranscodedAudioListener(this);  //
+	}/**END FUNCTION SipToFlashAudioStream**/
+
+    /*****************************************************************************
+    ;  getStreamName
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to get the stream name.
+    ;
+    ; RETURNS : String
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  get stream name
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	public String getStreamName() {
 		return listenStreamName;
-	}
-	
+	}/**END FUNCTION getStreamName**/
+    
+    /*****************************************************************************
+    ;  addListenStreamObserver
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to add the stream observer.
+    ;
+    ; RETURNS : String
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  add stream observer
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	public void addListenStreamObserver(StreamObserver o) {
 		observer = o;
-	}
-	
+	}/**END FUNCTION addListenStreamObserver**/
+
+    /*****************************************************************************
+    ;  stop
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to stop audio stream.
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  stop rtp stream receiver
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	public void stop() {
 		log.debug("Stopping stream for {}", listenStreamName);
 		processAudioData = false;
+		transcoder.setProcessAudioData(processAudioData);
 		rtpStreamReceiver.stop();
 		log.debug("Stopped RTP Stream Receiver for {}", listenStreamName);
 		if (audioBroadcastStream != null) {
@@ -112,20 +209,59 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
 		} else
 			log.debug("audioBroadcastStream is null, couldn't stop");
 	    log.debug("Stream(s) stopped");
-	}
-	
+	}/**END FUNCTION stop**/
+
+    /*****************************************************************************
+    ;  start
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	public void start() {
-		
-	}
-	
+
+	}/**END FUNCTION start**/
+
+    /*****************************************************************************
+    ;  startNow
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to start the audio stream
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  start broadcast audio stream
+    ;  set process data
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	private void startNow() {
 		log.debug("started publishing stream in " + scope.getName());
 		audioBroadcastStream = new AudioBroadcastStream(listenStreamName);
+        if ( null == audioBroadcastStream ){
+            log.error("error initialize audioBroadcastStream");
+        }
+        
 		audioBroadcastStream.setPublishedName(listenStreamName);
 		audioBroadcastStream.setScope(scope);
-		
+
 		IContext context = scope.getContext();
-		
+
 		IProviderService providerService = (IProviderService) context.getBean(IProviderService.BEAN_NAME);
 		if (providerService.registerBroadcastStream(scope, listenStreamName, audioBroadcastStream)){
 			IBroadcastScope bScope = (BroadcastScope) providerService.getLiveProviderInput(scope, listenStreamName, true);			
@@ -134,21 +270,22 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
 			log.error("could not register broadcast stream");
 			throw new RuntimeException("could not register broadcast stream");
 		}
-		
+
 	    audioBroadcastStream.start();	    
 	    processAudioData = true;
-	    	    
-	    audioDataProcessor = new Runnable() {
+		transcoder.setProcessAudioData(processAudioData);
+
+/*	    audioDataProcessor = new Runnable() {
     		public void run() {
     			processAudioData();       			
     		}
     	};
     	exec.execute(audioDataProcessor);
-    	
+*/    	
 	    rtpStreamReceiver.start();
-	}
-	
-	private void processAudioData() {
+	}/**END FUNCTION startNow**/
+
+/*	private void processAudioData() {
 		int len = 160;
 		byte[] pcmAudio = new byte[len];		
 		int remaining = len;
@@ -171,22 +308,74 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
 			}        		
 		}	
 	}
-	
+*/	
+
+    /*****************************************************************************
+    ;  onStoppedReceiving
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used when stop receiving stream
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   
+    ; IMPLEMENTATION
+    ;  
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	@Override
 	public void onStoppedReceiving() {
 		if (observer != null) observer.onStreamStopped();
-	}
+	}/**END FUNCTION onStoppedReceiving**/
 
+    /*****************************************************************************
+    ;  onAudioDataReceived
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used when audio data received
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   audioData   :   byte[]
+    ;   offset      :   int
+    ;   len         :   int
+    ;
+    ; IMPLEMENTATION
+    ;  handle audio data
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	@Override
 	public void onAudioDataReceived(byte[] audioData, int offset, int len) {
-		try {
-			streamFromSip.write(audioData, offset, len);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	
+		transcoder.handleData(audioData, offset, len);
+	}/**END FUNCTION onAudioDataReceived**/
+
+    /*****************************************************************************
+    ;  handleTranscodedAudioData
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used to handle audio data transcode
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   audioData   :   byte[]
+    ;   timestamp   :   long
+    ;
+    ; IMPLEMENTATION
+    ;  handle transcode audio data
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	@Override
 	public void handleTranscodedAudioData(byte[] audioData, long timestamp) {
 		if (audioData != null) {
@@ -194,8 +383,28 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
 		} else {
 			log.warn("Transcoded audio is null. Discarding.");
 		}
-	}
-	
+	}/**END FUNCTIOIN handleTranscodedAudioData**/
+
+    /*****************************************************************************
+    ;  sendFakeMetadata
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used set fake meta data
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   timestamp   :   long
+    ;
+    ; IMPLEMENTATION
+    ;  clear buffer
+    ;  put fake meta data
+    ;  
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	private void sendFakeMetadata(long timestamp) {
 		if (!sentMetadata) {
 			/*
@@ -208,14 +417,38 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
 		    mBuffer.flip();
 
 	        Notify notifyData = new Notify(mBuffer);
+            if ( null == notifyData ){
+                log.error("error initialize notifyData");
+                return ;
+            }
 	        notifyData.setTimestamp((int)timestamp);
 	        notifyData.setSourceType(Constants.SOURCE_TYPE_LIVE);
 			audioBroadcastStream.dispatchEvent(notifyData);
 			notifyData.release();
 			sentMetadata = true;
 		}		
-	}
-	
+	}/**END FUNCTION sendFakeMetadata**/
+
+    /*****************************************************************************
+    ;  pushAudio
+    ;----------------------------------------------------------------------------
+    ; DESCRIPTION
+    ;   this routine is used set fake meta data
+    ;
+    ; RETURNS : N/A
+    ;
+    ; INTERFACE NOTES
+    ;   INPUT
+    ;   audio       :   byte[]
+    ;   timestamp   :   long
+    ;
+    ; IMPLEMENTATION
+    ;  clear buffer
+    ;  put audio data to meta data
+    ; HISTORY
+    ; __date__ :        PTS:            Description
+    ; 03-30-2011
+    ******************************************************************************/
 	private void pushAudio(byte[] audio, long timestamp) {		
 		sendFakeMetadata(timestamp);
         mBuffer.clear();
@@ -233,5 +466,5 @@ public class SipToFlashAudioStream implements TranscodedAudioDataListener, RtpSt
         audioData.setData(mBuffer);
 		audioBroadcastStream.dispatchEvent(audioData);
 		audioData.release();
-    }
-}
+    }/**END FUNCTION pushAudio**/
+}/**END CLASS SipToFlashAudioStream**/
